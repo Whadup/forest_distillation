@@ -60,7 +60,7 @@ absmax = np.frompyfunc(absmax_, 2, 1)
 class Node():
     node_id = 0
     depth = 0
-    status = FRESH
+    # status = FRESH
     left = LEAF
     right = LEAF
     output = 0.5

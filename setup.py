@@ -37,7 +37,7 @@ setup(
     author_email='lukas.pfahler@tu-dortmund.de',  
     packages=find_packages(include=['random_forest_distillation*']),  
     test_suite="testing",
-    setup_requires=["pytest-runner", "Cython", "scikit-learn>=1.0", "numpy"],
+    setup_requires=["pytest-runner", "Cython", "scikit-learn>=1.0", "numpy", "tqdm"],
     ext_modules = cythonize(ext_modules, language_level = "3"),
     tests_require=["pytest", "pytest-cov"],
     include_package_data=True,
