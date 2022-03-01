@@ -1,0 +1,7 @@
+Cython
+numpy
+scikit-learn>=1.0
+git+https://github.com/Whadup/meticulous-ml
+pytest-runner
+pytest
+pytest-cov
