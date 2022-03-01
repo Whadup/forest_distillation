@@ -7,6 +7,7 @@ import pandas as pd
 import pickle
 import tqdm
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import QuantileTransformer, MinMaxScaler, OneHotEncoder
@@ -16,7 +17,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import pairwise_distances
 from scipy.stats import mode
-from random_forest_distillation.proxy_model import ProxyModel
+from random_forest_distillation import distill
 from random_forest_distillation.utils import model_size, consume_extra_arguments, type_guess
 from meticulous import Experiment
 
@@ -45,6 +46,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--dataset", type=str, default="MagicTelescope")
     parser.add_argument("--model", type=str, default="RandomForestClassifier")
+    parser.add_argument("--max_distillation_depth", type=int)
     Experiment.add_argument_group(parser)
     args, extra_args = parser.parse_known_args()
     #Make extra arguments regular arguments for meticulous tracking...
@@ -56,8 +58,7 @@ if __name__ == "__main__":
 
     print(f"========~ {args.dataset} ~========")
     X_train, y_train, X_test, y_test = get_data(args.dataset, **consume_extra_arguments(extra_args, get_data))
-    
-    
+
     model = type_guess(args.model)
     defaults = dict(n_jobs=-1, random_state=1504)
     model = model(**(defaults | consume_extra_arguments(extra_args, model)))
@@ -69,11 +70,10 @@ if __name__ == "__main__":
     print("MODEL SIZE", model_size(model))
     experiment.summary(model_size=model_size(model))
 
-    proxy_model = ProxyModel(model, **(dict(max_distillation_depth=4) |consume_extra_arguments(extra_args, ProxyModel)))
-    proxy_model.fit()
-    print("DISTILLATION LOSS", proxy_model.loss)
-    experiment.summary(proxy_loss=proxy_model.loss)
-    proxy_acc = accuracy_score(y_test, proxy_model.predict_proba(X_test) > 0.5)
+    proxy_model = distill(model, max_depth=args.max_distillation_depth)
+    # print("DISTILLATION LOSS", proxy_model.loss)
+    # experiment.summary(proxy_loss=proxy_model.loss)
+    proxy_acc = accuracy_score(y_test, proxy_model.predict_proba(X_test).argmax(axis=1))
     print("PROXY ACCURACY", proxy_acc)
     experiment.summary(proxy_accuracy=proxy_acc)
 

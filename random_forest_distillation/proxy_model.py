@@ -58,7 +58,7 @@ def absmax_(a, b):
 absmax = np.frompyfunc(absmax_, 2, 1)
 
 class Node():
-    node_id = 1
+    node_id = 0
     depth = 0
     status = FRESH
     left = LEAF
@@ -285,11 +285,12 @@ class ProxyModel():
         self.root_node = Node()
         self.root_node.loss = np.inf
         self.root_node.theta = root_theta
-        self.root_node.output = self.b(root_theta) / (2 * self.c(root_theta))
 
         partitions = self.b_construction(root_theta)
         self.root_node.partitions_theta = np.array([y for x, y in partitions])
         self.root_node.partitions_value = np.array([x for x, y in partitions])
+        # print(self.root_node.output, bias(self.root_node), 2 * self.c(root_theta))
+        self.root_node.output = bias(self.root_node) / (2 * self.c(root_theta))
         Q.put(self.root_node)
         c = 0
         danger_zone = 0
@@ -309,10 +310,10 @@ class ProxyModel():
             tmp.loss = n.loss
 
             if l != LEAF:
-                l.node_id = len(node_dict) + 2
+                l.node_id = len(node_dict)
                 node_dict[l.node_id] = l
                 Q.put(l)
-                r.node_id = len(node_dict) + 2
+                r.node_id = len(node_dict)
                 node_dict[r.node_id] = r
                 Q.put(r)
 
@@ -332,6 +333,8 @@ class ProxyModel():
                 Q.put(node.right)
         print("num_nodes", num_nodes, "max_depth", max_depth)
         self.loss = loss
+        self.num_nodes = num_nodes
+        self.max_depth = max_depth
 
         
     def predict_proba(self, X):
