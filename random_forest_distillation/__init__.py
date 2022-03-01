@@ -8,16 +8,16 @@ License: CC0-1.0 (Public Domain)
 """
 
 
-def distill(forest, max_depth):
+def distill(forest, max_depth, return_forest=False):
     from queue import Queue
     from .proxy_model import ProxyModel
     from sklearn.tree import DecisionTreeClassifier
+    from sklearn.ensemble import RandomForestClassifier
     import numpy as np
     from sklearn.tree import _tree as internal_tree
     proxy_model = ProxyModel(forest, max_distillation_depth=max_depth)
     proxy_model.fit()
 
-    new_tree = DecisionTreeClassifier()
     # tree.feature,
     # tree.threshold,
     # tree.children_left,
@@ -68,8 +68,15 @@ def distill(forest, max_depth):
         'values': values
     }
     bla.__setstate__(state)
+        
+    new_tree = DecisionTreeClassifier()
     new_tree.tree_ = bla
     new_tree.n_outputs_ = 1
     new_tree.n_classes_ = 2
+    if return_forest:
+        new_forest = RandomForestClassifier(n_estimators=1)
+        new_forest.estimators_ = [new_tree]
+        new_forest.n_classes_ = 2
+        return new_forest
     return new_tree
 

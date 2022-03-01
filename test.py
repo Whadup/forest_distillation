@@ -70,7 +70,7 @@ if __name__ == "__main__":
     print("MODEL SIZE", model_size(model))
     experiment.summary(model_size=model_size(model))
 
-    proxy_model = distill(model, max_depth=args.max_distillation_depth)
+    proxy_model = distill(model, max_depth=args.max_distillation_depth, return_forest=True)
     # print("DISTILLATION LOSS", proxy_model.loss)
     # experiment.summary(proxy_loss=proxy_model.loss)
     proxy_acc = accuracy_score(y_test, proxy_model.predict_proba(X_test).argmax(axis=1))
