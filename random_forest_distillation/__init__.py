@@ -8,6 +8,13 @@ License: CC0-1.0 (Public Domain)
 """
 
 
-
 def distill(forest, max_depth):
-    pass
+    from proxy_model import ProxyModel
+    from sklearn.tree import DecisionTreeClassifier
+    import numpy as np
+    from sklearn.tree import _tree
+    proxy_model = ProxyModel(forest, max_distillation_depth=max_depth)
+    proxy_model.fit()
+
+    tree = DecisionTreeClassifier()
+    # tree.tree_

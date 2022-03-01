@@ -45,10 +45,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--dataset", type=str, default="MagicTelescope")
     parser.add_argument("--model", type=str, default="RandomForestClassifier")
-    parser.add_argument("--method", choices=["distill", "milp", "veritas"])
-    parser.add_argument("--lnorm", type=int, default=np.inf)
-    parser.add_argument("--confidence_cutoff", type=float, default=0.5)
-    parser.add_argument("--only_correct", action="store_true")
     Experiment.add_argument_group(parser)
     args, extra_args = parser.parse_known_args()
     #Make extra arguments regular arguments for meticulous tracking...
@@ -61,11 +57,9 @@ if __name__ == "__main__":
     print(f"========~ {args.dataset} ~========")
     X_train, y_train, X_test, y_test = get_data(args.dataset, **consume_extra_arguments(extra_args, get_data))
     
-    # X_test = X_test[:1]
-    # y_test = y_test[:1]
-    if args.model == "RandomForestClassifier":
-        model = RandomForestClassifier
-        defaults = dict(n_jobs=-1, random_state=1504)
+    
+    model = type_guess(args.model)
+    defaults = dict(n_jobs=-1, random_state=1504)
     model = model(**(defaults | consume_extra_arguments(extra_args, model)))
     print(f"MODEL = {model}")
     model.fit(X_train, y_train)
@@ -75,10 +69,13 @@ if __name__ == "__main__":
     print("MODEL SIZE", model_size(model))
     experiment.summary(model_size=model_size(model))
 
-    proxy_model = ProxyModel(model, max_depth=4)
+    proxy_model = ProxyModel(model, **(dict(max_distillation_depth=4) |consume_extra_arguments(extra_args, ProxyModel)))
     proxy_model.fit()
-    print(proxy_model.loss())
-    print("TEST ACCURACY", accuracy_score(y_test, proxy_model.predict_proba(X_test).argmax(axis=1)))
+    print("DISTILLATION LOSS", proxy_model.loss)
+    experiment.summary(proxy_loss=proxy_model.loss)
+    proxy_acc = accuracy_score(y_test, proxy_model.predict_proba(X_test) > 0.5)
+    print("PROXY ACCURACY", proxy_acc)
+    experiment.summary(proxy_accuracy=proxy_acc)
 
 
    

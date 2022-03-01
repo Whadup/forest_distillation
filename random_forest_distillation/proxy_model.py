@@ -59,6 +59,7 @@ absmax = np.frompyfunc(absmax_, 2, 1)
 
 class Node():
     node_id = 1
+    depth = 0
     status = FRESH
     left = LEAF
     right = LEAF
@@ -82,16 +83,17 @@ class ProxyModel():
     n_features = data dimension
     trees = [(features, values, lefts, rights, outputs)]
     """
-    def __init__(self, tree_ensemble, max_depth=4):
-        self.max_depth = max_depth
+    def __init__(self, tree_ensemble, max_distillation_depth=4):
+        self.max_depth = max_distillation_depth
         if isinstance(tree_ensemble, RandomForestClassifier):
             self.n_estimators = tree_ensemble.n_estimators
             self.n_features = tree_ensemble.n_features_in_
-            self.max_nodes = max_nodes
             self.original_prediction = tree_ensemble
             self.trees = []
             for tree in tree_ensemble:
                 tree = tree.tree_
+                assert (0.0 <= tree.threshold[tree.children_left != LEAF]).all() and (tree.threshold[tree.children_left != LEAF] <= 1.0).all(), \
+                    "We only support distillation when all features x are in 0 <= x <= 1"
                 self.trees.append(
                     (
                         tree.feature,
@@ -184,29 +186,6 @@ class ProxyModel():
         return variance(node)
 
     def split_node(self, node):
-        # (node, prio), confidence = item
-        # if node.status == DONE:
-        #     raise RuntimeError("this shouldnt happen")
-        # print("processing", node.node_id, np.argwhere(node.status == -1))
-        # self.confidence = confidence
-        # v = volume(node.theta)
-        # confidence_interval = node.confidence_interval
-        # direction = np.sign(0.5 - node.output)
-        # pred = np.round(node.output)
-        # wrong = self.y0.astype(int) != pred.astype(int)
-        # #if node.danger_zone < confidence  and \
-        # # if np.round(node.output + direction * confidence_interval).astype(int) == np.round(node.output).astype(int) and \
-        # #     node.prio.min() > 0:
-        # #     #np.linalg.norm(node.p[wrong], ord=self.ord, axis=1).min() > 0:
-        # #     #print("no more changes expected", node.output, "+-", confidence_interval, "...", volume(node.theta))
-        # #     return prio, node, node.left, node.right
-
-
-        # if len(node.partitions_value) <= self.n_estimators: # or node.loss < ZERO:
-        #     node.danger_zone = 0
-        #     node.loss = 0
-        #     print("AAAAH")
-        #     return prio, node, node.left, node.right
         #Find a split for node
         best_split_feauture = None
         best_split_value = None
@@ -256,7 +235,6 @@ class ProxyModel():
         node.feature = best_split_feauture
         node.threshold = best_split_value
         node.left = Node()
-        node.left.status = FRESH * np.ones_like(self.y0)
         node.left.node_id = node.node_id * 2
         node.left.depth = node.depth + 1
         node.left.theta = deepcopy(node.theta)
@@ -269,49 +247,17 @@ class ProxyModel():
         node.left.partitions_value = node.partitions_value[still_active]
         v  = volume(node.left.theta)
         a = 0
-        if node.depth < 0:
-            node.left.loss = 0.0
-        else:
+        if node.left.depth == self.max_depth:
             a = self.a(node.left)
             node.left.loss = 0.0 if v < ZERO else a - best_split_b[0] ** 2 / (4 * v)
 
         t = np.abs(node.left.output - 0.5) #/ np.sqrt(node.left.loss)
         node.left.danger_zone = v if t < ZERO else min(t**(-2) * node.left.loss, v)
 
-        decision_left = node.threshold < self.X[:, node.feature]
-        node.left.p = deepcopy(node.p)
-        node.left.p[decision_left, node.feature] = absmax(node.left.p[decision_left, node.feature], node.threshold - self.X[decision_left][:, node.feature])
-        pred = np.round(node.left.output)
-        wrong = self.y0.astype(int) != pred.astype(int)
-
-
-        if False and node.left.depth > 25:
-            print("<m4>")
-            confidence_interval, m4 = he_zhang_zhang(self.confidence, node.left.output, v, bias(node.left), variance(node.left), skewness(node.left), kurtosis(node.left))
-            print("</m4>")
-            confidence_interval = (np.clip(m4, 0.0, None)/ (self.confidence * v.clip(ZERO)))  ** (1.0/4.0) 
-            node.left.danger_zone = v if t < ZERO else min(t**(-4) * m4, v)
-            # asdfasd
-            # extra = kurtosis(node.left) -4 * skewness(node.left) * node.left.output +6 * node.left.output ** 2 *  variance(node.left) - 4 * node.left.output ** 3 * bias(node.left) + node.left.output ** 4 * v
-            # confidence_interval = (np.clip(extra, 0.0, None) / (self.confidence * v.clip(ZERO)))  ** (1.0/4.0)
-        else:
-        # elif node.left.depth > 12:
-        # node.left.partitions_value
-            confidence_interval = (np.clip(node.left.loss, 0.0, None)/ (self.confidence * v.clip(ZERO)))  ** (1.0/2.0) 
-            # confidence_interval = np.sqrt((1.0 - self.confidence ) * np.clip(node.left.loss, 0.0, None)  / (self.confidence * v.clip(ZERO)))
-        # else:
-        #     confidence_interval = 0.5
-        node.left.confidence_interval = confidence_interval
-        direction = np.sign(0.5 - node.left.output)
-        # print(node.left.output, "+-", confidence_interval)
-        wrongwrong = True#self.y0.astype(int) != np.round(node.left.output + direction * confidence_interval).astype(int)
-        node.left.prio = self.n_features * np.ones(len(node.p))
-        s = np.logical_or(wrong, wrongwrong)
-        if s.any():
-            node.left.prio[s] = np.linalg.norm(node.left.p[s], ord=self.ord, axis=1)#.min()
+        
+    
 
         node.right = Node()
-        node.right.status = FRESH * np.ones_like(self.y0)
         node.right.node_id = node.node_id * 2 + 1
         node.right.depth = node.depth + 1
         node.right.theta = deepcopy(node.theta)
@@ -323,54 +269,20 @@ class ProxyModel():
         node.right.partitions_theta = node.right.partitions_theta[still_active]
         node.right.partitions_value = node.partitions_value[still_active]
         v  = volume(node.right.theta)
-        if node.depth < 0:
-            node.right.loss = 0.0
-        else:
+        if node.right.depth == self.max_depth:
             node.right.loss = 0.0 if v < ZERO else self.a(node.right) - best_split_b[1] ** 2 / (4 * v)
 
         t = np.abs(node.right.output - 0.5) #/ np.sqrt(node.right.loss)
         node.right.danger_zone = v if t < ZERO else min(t**(-2) * node.right.loss, v)# 
-        decision_right = node.threshold > self.X[:, node.feature]
-        node.right.p = deepcopy(node.p)
-        node.right.p[decision_right, node.feature] = absmax(node.right.p[decision_right, node.feature], -self.X[:, node.feature][decision_right] + node.threshold) #TODO: think about this
-        pred = np.round(node.right.output)
-        wrong = self.y0.astype(int) != pred.astype(int)
-
-        if False and node.right.depth > 25:
-            # extra = kurtosis(node.right) -4 * skewness(node.right) * node.right.output +6 * node.right.output ** 2 *  variance(node.right) - 4 * node.right.output ** 3 * bias(node.right) + node.right.output ** 4 * v
-            # confidence_interval = (np.clip(extra, 0.0, None)/ (self.confidence * v.clip(ZERO)))  ** (1.0/4.0) 
-            print("<m4>")
-            confidence_interval, m4 = he_zhang_zhang(self.confidence, node.right.output, v, bias(node.right), variance(node.right), skewness(node.right), kurtosis(node.right))
-            print("</m4>")
-            confidence_interval = (np.clip(m4, 0.0, None)/ (self.confidence * v.clip(ZERO)))  ** (1.0/4.0) 
-
-            node.right.danger_zone = v if t < ZERO else min(t**(-4) * m4, v)
-        # elif node.right.depth > 12:
-        else:
-            confidence_interval = (np.clip(node.right.loss, 0.0, None)/ (self.confidence * v.clip(ZERO)))  ** (1.0/2.0) 
-
-            # confidence_interval = np.sqrt((1.0 - self.confidence ) * np.clip(node.right.loss, 0.0, None) / (self.confidence * v.clip(ZERO)))
-        # else:
-        #     confidence_interval = 0.5
-        node.right.confidence_interval = confidence_interval
-        direction = np.sign(0.5 - node.right.output)
-        wrongwrong = True #self.y0.astype(int) != np.round(node.right.output + direction * confidence_interval).astype(int)
-        node.right.prio = self.n_features * np.ones(len(node.p))
-        s = np.logical_or(wrong, wrongwrong)
-        if s.any():
-            node.right.prio[s] = np.linalg.norm(node.right.p[s], ord=self.ord, axis=1)#.min()
-        return prio, node, node.left, node.right
+        
+        return 1, node, node.left, node.right
 
     def fit(self, *args):
-        if not hasattr(self, "pool"):
-            print("setup multiprocessing")
-            self.pool = multiprocessing.Pool(os.cpu_count() , initializer=setup, initargs=(self,)) #os.cpu_count() // 8
-            print("all set.")
+
         Q = Queue()
     
         root_theta = np.array([[0.0, 1.0] for i in range(self.n_features)])
         self.root_node = Node()
-        self.root_node.status = FRESH * np.ones_like(self.y0)
         self.root_node.loss = np.inf
         self.root_node.theta = root_theta
         self.root_node.output = self.b(root_theta) / (2 * self.c(root_theta))
@@ -380,14 +292,13 @@ class ProxyModel():
         self.root_node.partitions_value = np.array([x for x, y in partitions])
         Q.put(self.root_node)
         c = 0
-        max_nodes = self.max_nodes
         danger_zone = 0
         
         node_dict = {self.root_node.node_id:self.root_node}
 
-        for i in range(2**self.max_depth):
-            x = Q.pop()
-            rr, n, l, r = self.split_node(x)
+        for i in tqdm.tqdm(range(2**(self.max_depth) - 1), total=2**(self.max_depth) - 1):
+            x = Q.get()
+            _, n, l, r = self.split_node(x)
             tmp = node_dict[n.node_id]
 
             tmp.left = l
@@ -398,22 +309,30 @@ class ProxyModel():
             tmp.loss = n.loss
 
             if l != LEAF:
+                l.node_id = len(node_dict) + 2
+                node_dict[l.node_id] = l
                 Q.put(l)
+                r.node_id = len(node_dict) + 2
+                node_dict[r.node_id] = r
                 Q.put(r)
 
         loss = 0
+        num_nodes = 0
+        max_depth = 0
+        Q = Queue()
+        Q.put(self.root_node)
         while not Q.empty():
             node = Q.get()
+            num_nodes += 1
+            max_depth = max(max_depth, node.depth)
             if node.left == LEAF:
                 loss += node.loss
             else:
                 Q.put(node.left)
                 Q.put(node.right)
-
+        print("num_nodes", num_nodes, "max_depth", max_depth)
         self.loss = loss
 
-    def loss(self):
-        return self.loss
         
     def predict_proba(self, X):
         y = []

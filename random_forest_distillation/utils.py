@@ -1,5 +1,6 @@
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import _tree
+import sys
 
 def model_size(rf):
     def tree_size(tree, curNode=0):
@@ -30,7 +31,13 @@ def type_guess(str):
     try:
         return ast.literal_eval(str)
     except:
-        return str
+        try:
+            return class_guess(str)
+        except:
+            return str
+
+def class_guess(classname):
+    return getattr(sys.modules[__name__], classname)
 
 def consume_extra_arguments(extra_args, fun):
     import inspect
