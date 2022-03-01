@@ -83,8 +83,9 @@ class ProxyModel():
     n_features = data dimension
     trees = [(features, values, lefts, rights, outputs)]
     """
-    def __init__(self, tree_ensemble, max_distillation_depth=4):
+    def __init__(self, tree_ensemble, max_distillation_depth=None, max_nodes=None):
         self.max_depth = max_distillation_depth
+        self.max_nodes = max_nodes
         if isinstance(tree_ensemble, RandomForestClassifier):
             self.n_estimators = tree_ensemble.n_estimators
             self.n_features = tree_ensemble.n_features_in_
@@ -247,7 +248,7 @@ class ProxyModel():
         node.left.partitions_value = node.partitions_value[still_active]
         v  = volume(node.left.theta)
         a = 0
-        if node.left.depth == self.max_depth:
+        if node.left.depth == self.max_depth or self.max_nodes is not None:
             a = self.a(node.left)
             node.left.loss = 0.0 if v < ZERO else a - best_split_b[0] ** 2 / (4 * v)
 
@@ -269,7 +270,7 @@ class ProxyModel():
         node.right.partitions_theta = node.right.partitions_theta[still_active]
         node.right.partitions_value = node.partitions_value[still_active]
         v  = volume(node.right.theta)
-        if node.right.depth == self.max_depth:
+        if node.right.depth == self.max_depth or self.max_nodes is not None:
             node.right.loss = 0.0 if v < ZERO else self.a(node.right) - best_split_b[1] ** 2 / (4 * v)
 
         t = np.abs(node.right.output - 0.5) #/ np.sqrt(node.right.loss)
@@ -279,7 +280,7 @@ class ProxyModel():
 
     def fit(self, *args):
 
-        Q = Queue()
+        Q = PriorityQueue()
     
         root_theta = np.array([[0.0, 1.0] for i in range(self.n_features)])
         self.root_node = Node()
@@ -291,14 +292,14 @@ class ProxyModel():
         self.root_node.partitions_value = np.array([x for x, y in partitions])
         # print(self.root_node.output, bias(self.root_node), 2 * self.c(root_theta))
         self.root_node.output = bias(self.root_node) / (2 * self.c(root_theta))
-        Q.put(self.root_node)
+        Q.put((0, self.root_node))
         c = 0
         danger_zone = 0
         
         node_dict = {self.root_node.node_id:self.root_node}
-
-        for i in tqdm.tqdm(range(2**(self.max_depth) - 1), total=2**(self.max_depth) - 1):
-            x = Q.get()
+        num_iters = self.max_nodes - 1 if self.max_nodes is not None else 2**(self.max_depth) - 1
+        for i in tqdm.tqdm(range(num_iters), total=num_iters):
+            prio, x = Q.get()
             _, n, l, r = self.split_node(x)
             tmp = node_dict[n.node_id]
 
@@ -312,10 +313,10 @@ class ProxyModel():
             if l != LEAF:
                 l.node_id = len(node_dict)
                 node_dict[l.node_id] = l
-                Q.put(l)
+                Q.put((l.depth if self.max_depth is not None else -l.loss, l))
                 r.node_id = len(node_dict)
                 node_dict[r.node_id] = r
-                Q.put(r)
+                Q.put((r.depth if self.max_depth is not None else -r.loss, r))
 
         loss = 0
         num_nodes = 0
@@ -332,6 +333,7 @@ class ProxyModel():
                 Q.put(node.left)
                 Q.put(node.right)
         print("num_nodes", num_nodes, "max_depth", max_depth)
+        print("loss", loss)
         self.loss = loss
         self.num_nodes = num_nodes
         self.max_depth = max_depth
