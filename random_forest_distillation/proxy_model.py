@@ -102,7 +102,7 @@ class ProxyModel():
                         tree.threshold,
                         tree.children_left,
                         tree.children_right,
-                        1.0 * tree.value[:, 0, 1] / tree.value[:, 0, :].sum(axis=-1)
+                        1.0 * ((1.0 * tree.value[:, 0, 1] / tree.value[:, 0, :].sum(axis=-1)) > 0.5)
                     )
                 )
         elif isinstance(tree_ensemble, list):

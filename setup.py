@@ -25,7 +25,7 @@ ext_modules = [
 ]
 
 setup(
-    name='random_forest_robustness',
+    name='random_forest_distillation',
     version=_VERSION,
     description='Approximate a sklearn RandomForestClassifier using a single Decision Tree.',
     long_description=_README_MD,
