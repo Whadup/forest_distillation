@@ -187,6 +187,8 @@ class ProxyModel():
         return variance(node)
 
     def split_node(self, node):
+        if len(node.partitions_value) <= self.n_estimators:
+            return 0.0, node, LEAF, LEAF
         #Find a split for node
         best_split_feauture = None
         best_split_value = None
@@ -299,6 +301,8 @@ class ProxyModel():
         node_dict = {self.root_node.node_id:self.root_node}
         num_iters = self.max_nodes - 1 if self.max_nodes is not None else 2**(self.max_depth) - 1
         for i in tqdm.tqdm(range(num_iters), total=num_iters):
+            if Q.empty():
+                break
             prio, x = Q.get()
             _, n, l, r = self.split_node(x)
             tmp = node_dict[n.node_id]

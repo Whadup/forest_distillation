@@ -5,3 +5,4 @@ git+https://github.com/Whadup/meticulous-ml
 pytest-runner
 pytest
 pytest-cov
+tqdm
