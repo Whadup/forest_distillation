@@ -33,7 +33,7 @@ def distill(forest, max_depth=None, max_nodes=None, return_forest=False):
     impurity = []
     n_node_samples = []
     weighted_n_node_samples = []
-    print(proxy_model.root_node.output)
+    # print(proxy_model.root_node.output)
     while not Q.empty():
         n = Q.get()
         value[n.node_id]= (n.output)
@@ -77,6 +77,9 @@ def distill(forest, max_depth=None, max_nodes=None, return_forest=False):
         new_forest = RandomForestClassifier(n_estimators=1)
         new_forest.estimators_ = [new_tree]
         new_forest.n_classes_ = 2
+        new_forest.n_outputs_ = 1
+        new_forest.n_features_in_ = forest.n_features_in_
+        new_forest.classes_ = forest.classes_
         return new_forest
     return new_tree
 

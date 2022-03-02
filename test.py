@@ -2,6 +2,7 @@
 # LDFLAGS=-"L/usr/local/opt/llvm/lib" CC=/usr/local/opt/llvm/bin/clang python setup.py build_ext --inplace && python -m random_forest_robustness.robustness
 # python setup.py build_ext --inplace && python -m random_forest_robustness.robustness
 import argparse
+from copy import deepcopy
 import numpy as np
 import pandas as pd
 import pickle
@@ -20,6 +21,8 @@ from scipy.stats import mode
 from random_forest_distillation import distill
 from random_forest_distillation.utils import model_size, consume_extra_arguments, type_guess
 from meticulous import Experiment
+
+
 
 def get_data(dataset="MagicTelescope", quantile_transform=True):
     """Load data, split intro train and test and normalize each feature."""
@@ -78,7 +81,3 @@ if __name__ == "__main__":
     print("PROXY ACCURACY", proxy_acc)
     experiment.summary(proxy_accuracy=proxy_acc)
 
-
-   
-    if len(extra_args):
-        print("WARNING! Unused command line arguments remaining:", extra_args)
