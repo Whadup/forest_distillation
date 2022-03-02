@@ -8,14 +8,14 @@ License: CC0-1.0 (Public Domain)
 """
 
 
-def distill(forest, max_depth=None, max_nodes=None, return_forest=False):
+def distill(forest, max_depth=None, max_nodes=None, return_forest=False, verbose=False):
     from queue import Queue
     from .proxy_model import ProxyModel
     from sklearn.tree import DecisionTreeClassifier
     from sklearn.ensemble import RandomForestClassifier
     import numpy as np
     from sklearn.tree import _tree as internal_tree
-    proxy_model = ProxyModel(forest, max_distillation_depth=max_depth, max_nodes=max_nodes)
+    proxy_model = ProxyModel(forest, max_distillation_depth=max_depth, max_nodes=max_nodes, verbose=verbose)
     proxy_model.fit()
 
     # tree.feature,

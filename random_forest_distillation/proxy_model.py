@@ -83,9 +83,10 @@ class ProxyModel():
     n_features = data dimension
     trees = [(features, values, lefts, rights, outputs)]
     """
-    def __init__(self, tree_ensemble, max_distillation_depth=None, max_nodes=None):
+    def __init__(self, tree_ensemble, max_distillation_depth=None, max_nodes=None, verbose=True):
         self.max_depth = max_distillation_depth
         self.max_nodes = max_nodes
+        self.verbose = verbose
         if isinstance(tree_ensemble, RandomForestClassifier):
             self.n_estimators = tree_ensemble.n_estimators
             self.n_features = tree_ensemble.n_features_in_
@@ -300,7 +301,7 @@ class ProxyModel():
         
         node_dict = {self.root_node.node_id:self.root_node}
         num_iters = self.max_nodes - 1 if self.max_nodes is not None else 2**(self.max_depth) - 1
-        for i in tqdm.tqdm(range(num_iters), total=num_iters):
+        for i in tqdm.tqdm(range(num_iters), total=num_iters, disable=not self.verbose):
             if Q.empty():
                 break
             prio, x = Q.get()
@@ -336,8 +337,9 @@ class ProxyModel():
             else:
                 Q.put(node.left)
                 Q.put(node.right)
-        print("num_nodes", num_nodes, "max_depth", max_depth)
-        print("loss", loss)
+        if self.verbose:
+            print("num_nodes", num_nodes, "max_depth", max_depth)
+            print("loss", loss)
         self.loss = loss
         self.num_nodes = num_nodes
         self.max_depth = max_depth
